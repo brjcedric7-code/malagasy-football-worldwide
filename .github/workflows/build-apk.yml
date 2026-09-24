@@ -11,8 +11,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Extract MFW Android project
+        run: |
+          mkdir -p mfw-project
+          unzip -q MFW_Android_CloudBuild_V1.zip -d mfw-project
+
+      - name: Find Android project
+        run: |
+          PROJECT_DIR=$(dirname "$(find mfw-project -name settings.gradle.kts -print -quit)")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Android project found at: $PROJECT_DIR"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -20,10 +31,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK
+      - name: Install Android SDK packages
         run: |
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
@@ -33,11 +44,13 @@ jobs:
           gradle-version: '8.7'
 
       - name: Build APK
-        run: gradle :app:assembleDebug --stacktrace
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          gradle :app:assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: MFW-Android-V1-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
